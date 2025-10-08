@@ -1,0 +1,136 @@
+version: '3.4'
+
+services:
+  ordermicroservice.api:
+    image: orders-microservice:latest
+    build:
+      context: .
+      dockerfile: OrderMicroService.API/Dockerfile
+    environment:
+      - MONGODB_HOST=mongodb-container
+      - MONGODB_PORT=27017
+      - MONGODB_DATABASE=OrdersDatabase
+      - UsersMicroserviceName=apigateway # Name of the service
+      - UsersMicroservicePort=8080
+      - ProductsMicroserviceName=apigateway #Name of the service
+      - ProductsMicroservicePort=8080
+      - Redis_HOST=redis
+      - Redis_PORT=6379
+      - RabbitMQ_HostName=rabbitmq
+      - RabbitMQ_UserName=user
+      - RabbitMQ_Password=password
+      - RabbitMQ_Port=5672
+      - RabbitMQ_Products_Exchange=product.exchange
+    ports:
+      - "7001:8080"
+    networks:
+      - ecommerce-network
+      - orders-mongodb-network 
+
+  mongodb-container:
+    image: mongo:latest
+    container_name: mongodb-container
+    ports:
+      - "27017:27017"
+    volumes:
+      # Adjust the path depending on where your init scripts are
+      - ../mongo-init:/docker-entrypoint-initdb.d
+    networks:
+      - orders-mongodb-network
+      
+  users-microservice:
+   image: users-microservice:latest
+   container_name: users-microservice
+   environment:
+    - ASPNETCORE_HTTP_PORTS=8080
+    - ASPNETCORE_HTTP_ENVIRONMENT=Development
+    - MYSQL_HOST=mysql-container
+    - MYSQL_PORT=3306
+    - MYSQL_DATABASE=eCommerceUserDB
+    - MYSQL_USER=root
+    - MYSQL_PASSWORD=admin
+   ports:
+    - "5002:9090"
+   networks:
+    - users-mysql-network
+    - ecommerce-network
+   depends_on:
+    - mysql-container
+
+
+  products-microservice:
+   image: products-microservice:latest
+   container_name: products-microservice
+   environment:
+    - ASPNETCORE_HTTP_PORTS=8080
+    - MYSQL_HOST=mysql-container
+    - MYSQL_PORT=3306
+    - MYSQL_DATABASE=ecommerceproductsdatabase
+    - MYSQL_USER=root
+    - MYSQL_PASSWORD=admin
+    - RabbitMQ_HostName=rabbitmq
+    - RabbitMQ_UserName=user
+    - RabbitMQ_Password=password
+    - RabbitMQ_Port=5672
+    - RabbitMQ_Products_Exchange=product.exchange
+   ports:
+    - "6001:8080"
+   networks:
+    - products-mysql-network
+    - ecommerce-network
+   depends_on:
+    - mysql-container
+
+  mysql-container:
+   image: mysql:8.0
+   environment:
+    - MYSQL_ROOT_PASSWORD=admin
+   ports:
+    - "3307:3306"
+   volumes:
+    - ../mysql/mysql-init:/docker-entrypoint-initdb.d
+   networks:
+    - products-mysql-network
+    - users-mysql-network
+    - ecommerce-network
+
+  redis: 
+   image: redis:latest
+   container_name: redis
+   ports:
+    - "6379:6379"
+   volumes:
+    - D:\Learning\DotNetCoreMicroservices\RedisDir:/data
+   networks:
+    - ecommerce-network
+
+  apigateway:
+   image: apigateway
+   build:
+    context: .
+    dockerfile: APIGateway/Dockerfile
+   networks:
+    - ecommerce-network
+   ports:
+    - "4000:8080"
+  rabbitmq:
+   image: rabbitmq:3.13-management
+   container_name: rabbitmq
+   ports:
+    - "5672:5672"
+    - "15672:15672"
+   environment:
+    - RABBITMQ_DEFAULT_USER=user
+    - RABBITMQ_DEFAULT_PASS=password
+   networks:
+    - ecommerce-network
+    
+networks:
+ orders-mongodb-network:
+  driver: bridge
+ products-mysql-network:
+  driver: bridge
+ users-mysql-network:
+  driver: bridge
+ ecommerce-network:
+  driver: bridge
