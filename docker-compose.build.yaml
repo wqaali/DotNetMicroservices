@@ -1,0 +1,130 @@
+services:
+  mongodb-container:
+    image: ecommerce-mongodb:latest
+    build:
+      context: /mongodb
+      dockerfile: /Dockerfile
+    ports:
+      - "27017:27017"
+    networks:
+      - orders-mongodb-network
+
+  mysql-container:
+    image: ecommerce-mysql:latest
+    build:
+      context: /mysql
+      dockerfile: /Dockerfile
+    environment:
+      - MYSQL_ROOT_PASSWORD=admin
+    ports:
+      - "3306:3306"
+    networks:
+      - mysql-network
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    networks:
+      - ecommerce-network
+
+  rabbitmq:
+    image: rabbitmq:3.8-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - ecommerce-network
+  apigateway:
+    image: apigateway:latest
+    build:
+      context: /EcommerceSolution.OrderMicroService
+      dockerfile: APIGateway/Dockerfile
+    ports:
+      - "5000:8080"
+    networks:
+      - ecommerce-network
+    depends_on:
+      - orders-microservice
+      - products-microservice
+      - users-microservice
+  users-microservice:
+    image: users-microservice:latest
+    build:
+      context: /eCommerceSolution.UserServices
+      dockerfile: /eCommerce.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - MYSQL_HOST=mysql-container
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=eCommerceUserDB
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=admin
+      - RabbitMQ_HostName=rabbitmq
+      - RabbitMQ_Port=5672
+      - RabbitMQ_UserName=guest
+      - RabbitMQ_Password=guest
+      - RabbitMQ_Users_Exchange=users.exchange
+    networks:
+      - mysql-network
+      - ecommerce-network
+    depends_on:
+      - mysql-container
+  products-microservice:
+    image: products-microservice:latest
+    build:
+      context: /eCommerceSolution.ProductService
+      dockerfile: /ProductMicroService.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - MYSQL_HOST=mysql-container
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=ecommerceproductsdatabase
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=admin
+      - RabbitMQ_HostName=rabbitmq
+      - RabbitMQ_Port=5672
+      - RabbitMQ_UserName=guest
+      - RabbitMQ_Password=guest
+      - RabbitMQ_Products_Exchange=products.exchange
+    networks:
+      - mysql-network
+      - ecommerce-network
+    depends_on:
+      - mysql-container
+  orders-microservice:
+    image: orders-microservice:latest
+    build:
+      context: /EcommerceSolution.OrderMicroService
+      dockerfile: /OrderMicroService.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - MONGODB_HOST=mongodb-container
+      - MONGODB_PORT=27017
+      - MONGODB_DATABASE=OrdersDatabase
+      - UsersMicroserviceName=apigateway
+      - UsersMicroservicePort=8080
+      - ProductsMicroserviceName=apigateway
+      - ProductsMicroservicePort=8080
+      - Redis_HOST=redis
+      - Redis_PORT=6379
+      - RabbitMQ_HostName=rabbitmq
+      - RabbitMQ_Port=5672
+      - RabbitMQ_UserName=guest
+      - RabbitMQ_Password=guest
+      - RabbitMQ_Products_Exchange=products.exchange
+      - RabbitMQ_Users_Exchange=users.exchange
+    networks:
+      - orders-mongodb-network
+      - ecommerce-network
+    depends_on:
+      - mongodb-container
+      - rabbitmq
+      - redis
+
+networks:
+  orders-mongodb-network:
+    driver: bridge
+  mysql-network:
+    driver: bridge
+  ecommerce-network:
+    driver: bridge

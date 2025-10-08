@@ -1,0 +1,20 @@
+docker run -it -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=Sa@12345" -p 1433:1433 --hostname=sqlexp --network=productmiscroservice-network mcr.microsoft.com/mssql/server:2022-latest  
+productmiscroservice-network
+
+docker container run -p 8080:8080 --network=productmiscroservice-network wqaa/productmicroservice:1.0
+
+docker run -it --rm --network=container:nervous_albattani mcr.microsoft.com/mssql-tools /opt/mssql-tools/bin/sqlcmd -S sqlexp -U sa -P "Sa@12345"
+
+
+DECLARE @VERSION nvarchar(128); SET @VERSION = @@VERSION; SELECT @VERSION;
+
+docker run --rm -p 27017:27017 --name mongodb-server mongo:latest
+command below will open shell for mongo
+docker exec -it mongodb-server bash
+"mongosh" this command with open current shell
+show databases will show all dbs in mongo 
+Enter in Database : "use OrdersDatabase"
+Show Tables : show collections
+Check tAble data : db.orders.find();
+
+
